@@ -22,9 +22,9 @@ class Vocabulary:
 
     def transform(self, text: str):
         if not self.__freeze and text not in self.__dict:
-            self.__size += 1
             self.__dict[text] = self.__size
             self.__reverse_dict[self.__size] = text
+            self.__size += 1
 
         return self.__dict[text] if text in self.__dict else self.__dict[self.UNK]
 
