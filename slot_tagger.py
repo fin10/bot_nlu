@@ -9,7 +9,13 @@ from utterance import Utterance
 from vocabulary import Vocabulary
 
 
+tf.logging.set_verbosity(tf.logging.INFO)
+
+
 class SlotTagger:
+
+    __TEXT_VOCAB_FILENAME = 'text.vocab'
+    __LABEL_VOCAB_FILENAME = 'label.vocab'
 
     def __init__(self, bot_name: str, max_length: int):
         self.__bot_name = bot_name
@@ -18,24 +24,28 @@ class SlotTagger:
         self.__label_vocab = None
         self.__estimator = None
 
-        model_path = os.path.join(os.path.dirname(__file__), './model', self.__bot_name)
+        model_path = self.__get_model_path(bot_name)
         if os.path.exists(model_path):
-            with open(os.path.join(model_path, 'text.vocab'), encoding='utf-8') as fp:
+            with open(os.path.join(model_path, self.__TEXT_VOCAB_FILENAME), encoding='utf-8') as fp:
                 self.__text_vocab = Vocabulary(json.loads(fp.read()))
 
-            with open(os.path.join(model_path, 'label.vocab'), encoding='utf-8') as fp:
+            with open(os.path.join(model_path, self.__LABEL_VOCAB_FILENAME), encoding='utf-8') as fp:
                 self.__label_vocab = Vocabulary(json.loads(fp.read()))
 
             self.__estimator = self.__make_estimator(model_path, len(self.__label_vocab), len(self.__text_vocab))
 
+    @staticmethod
+    def __get_model_path(bot_name: str):
+        return os.path.join(os.path.dirname(__file__), './model', bot_name)
+
     @classmethod
-    def __make_estimator(cls, model_path, output_size, vocab_size):
+    def __make_estimator(cls, model_path: str, output_size: int, vocab_size: int):
         return tf.estimator.Estimator(
             model_fn=cls.__model_fn,
             model_dir=model_path,
             config=tf.estimator.RunConfig(
-                save_summary_steps=5,
-                save_checkpoints_steps=5,
+                save_checkpoints_steps=50,
+                log_step_count_steps=10
             ),
             params={
                 'cell_size': 200,
@@ -117,7 +127,7 @@ class SlotTagger:
                 decay_rate=0.96
             )
 
-            train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(
+            train_op = tf.train.AdamOptimizer(learning_rate).minimize(
                 loss=loss,
                 global_step=tf.train.get_global_step(),
             )
@@ -145,30 +155,24 @@ class SlotTagger:
                 'labels': labels
             })
 
-        model_path = os.path.join(os.path.dirname(__file__), './model', bot_name)
+        model_path = cls.__get_model_path(bot_name)
         if os.path.exists(model_path):
             shutil.rmtree(model_path)
         os.makedirs(model_path)
 
-        with open(os.path.join(model_path, 'text.vocab'), mode='w', encoding='utf-8') as fp:
+        with open(os.path.join(model_path, cls.__TEXT_VOCAB_FILENAME), mode='w', encoding='utf-8') as fp:
             fp.write(text_vocab.save())
 
-        with open(os.path.join(model_path, 'label.vocab'), mode='w', encoding='utf-8') as fp:
+        with open(os.path.join(model_path, cls.__LABEL_VOCAB_FILENAME), mode='w', encoding='utf-8') as fp:
             fp.write(label_vocab.save())
 
         estimator = cls.__make_estimator(model_path, len(label_vocab), len(text_vocab))
 
         dataset = DatasetGenerator.generate(max_length, converted)
-        dataset = dataset.shuffle(1000).repeat(1000).batch(100)
+        dataset = dataset.shuffle(1000).repeat(None).batch(100)
+        estimator.train(lambda: cls.__input_fn(dataset), steps=201)
 
-        estimator.train(
-            lambda: cls.__input_fn(dataset)
-        )
-
-        result = estimator.evaluate(
-            lambda: cls.__input_fn(dataset)
-        )
-
+        result = estimator.evaluate(lambda: cls.__input_fn(dataset), steps=1)
         print(result)
 
     def tag(self, utterance: Utterance):
