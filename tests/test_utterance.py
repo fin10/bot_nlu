@@ -15,8 +15,8 @@ class TestUtterance(unittest.TestCase):
             print(utterance)
 
     def test_fetch(self):
-        result = Utterance.fetch()
-        print('\n'.join(list(map(lambda u: str(u), result.values()))))
+        result = Utterance.fetch('busLine')
+        print('\n'.join(list(map(lambda u: str(u), result))))
 
 
 if __name__ == '__main__':
