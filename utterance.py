@@ -1,7 +1,9 @@
 import re
-import os
-from spans import intrange
+
 from konlpy.tag import Twitter
+from spans import intrange
+
+from vocabulary import Vocabulary
 
 
 class Utterance:
@@ -9,46 +11,55 @@ class Utterance:
     __slot_pattern = re.compile(r'\(([^)]+)\)\[([^\]]+)\]')
     __tokenizer = Twitter()
 
-    def __init__(self, utterance: str, tokens: list, labels: list):
-        if len(utterance) == 0:
-            raise ValueError('utterance should not be empty.')
+    def __init__(self, original: str, plain_text: str, tokens: list, labels: list,
+                 encoded_tokens: list, encoded_labels: list):
+        if len(plain_text) == 0:
+            raise ValueError('plain_text should not be empty.')
 
         if len(tokens) != len(labels):
             raise ValueError('tokens and labels should have same length.')
 
-        self.__utterance = utterance
+        self.__original = original
+        self.__plain_text = plain_text
         self.__tokens = tokens
         self.__labels = labels
+        self.__encoded_tokens = encoded_tokens
+        self.__encoded_labels = encoded_labels
 
     def __str__(self):
         return str({
-            'utterance': self.__utterance,
+            'original': self.__original,
+            'plain_text': self.__plain_text,
             'tokens': self.__tokens,
             'labels': self.__labels
         })
 
+    def __len__(self):
+        return len(self.__tokens)
+
+    @property
+    def original(self):
+        return self.__original
+
+    @property
     def tokens(self):
         return self.__tokens
 
+    @property
     def labels(self):
         return self.__labels
 
-    @classmethod
-    def fetch(cls, bot_name):
-        utterances = []
+    @property
+    def encoded_tokens(self):
+        return self.__encoded_tokens
 
-        data_path = os.path.join(os.path.dirname(__file__), './data')
-        for path, _, files in os.walk(data_path):
-            if 'training' in files:
-                if bot_name == os.path.split(path)[-1]:
-                    with open(os.path.join(path, 'training'), encoding='utf-8') as fp:
-                        for line in fp:
-                            utterances.append(cls.parse(line.strip()))
-
-        return utterances
+    @property
+    def encoded_labels(self):
+        return self.__encoded_labels
 
     @classmethod
-    def parse(cls, utterance: str):
+    def parse(cls, utterance: str, text_vocab: Vocabulary, label_vocab: Vocabulary):
+        original = utterance
         entities = []
         while True:
             m = cls.__slot_pattern.search(utterance)
@@ -85,4 +96,7 @@ class Utterance:
             if not found:
                 labels.append('o')
 
-        return Utterance(utterance, tokens, labels)
+        encoded_tokens = [text_vocab.transform(token) for token in tokens]
+        encoded_labels = [label_vocab.transform(label) for label in labels]
+
+        return Utterance(original, utterance, tokens, labels, encoded_tokens, encoded_labels)

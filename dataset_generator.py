@@ -4,16 +4,14 @@ import tensorflow as tf
 class DatasetGenerator:
 
     @staticmethod
-    def generate(max_length, items: list):
+    def generate(max_length: int, utterances: list):
         def gen():
-            for item in items:
-                tokens = item['tokens']
-                labels = item['labels']
-                length = len(tokens)
-
-                tokens = [tokens[i] if i < length else 0 for i in range(max_length)]
-                labels = [labels[i] if i < length else 0 for i in range(max_length)]
+            for utterance in utterances:
+                length = len(utterance)
                 masks = [1 if i < length else 0 for i in range(max_length)]
+
+                tokens = [utterance.encoded_tokens[i] if i < length else 0 for i in range(max_length)]
+                labels = [utterance.encoded_labels[i] if i < length else 0 for i in range(max_length)]
 
                 yield ({
                             'ids': tokens,

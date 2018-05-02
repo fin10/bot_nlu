@@ -1,57 +1,24 @@
-import json
-import os
-import shutil
-
 import tensorflow as tf
-
-from dataset_generator import DatasetGenerator
-from utterance import Utterance
-from vocabulary import Vocabulary
-
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
 class SlotTagger:
 
-    __TEXT_VOCAB_FILENAME = 'text.vocab'
-    __LABEL_VOCAB_FILENAME = 'label.vocab'
-
-    def __init__(self, bot_name: str, max_length: int):
-        self.__bot_name = bot_name
-        self.__max_length = max_length
-        self.__text_vocab = None
-        self.__label_vocab = None
-        self.__estimator = None
-
-        model_path = self.__get_model_path(bot_name)
-        if os.path.exists(model_path):
-            with open(os.path.join(model_path, self.__TEXT_VOCAB_FILENAME), encoding='utf-8') as fp:
-                self.__text_vocab = Vocabulary(json.loads(fp.read()))
-
-            with open(os.path.join(model_path, self.__LABEL_VOCAB_FILENAME), encoding='utf-8') as fp:
-                self.__label_vocab = Vocabulary(json.loads(fp.read()))
-
-            self.__estimator = self.__make_estimator(model_path, len(self.__label_vocab), len(self.__text_vocab))
-
-    @staticmethod
-    def __get_model_path(bot_name: str):
-        return os.path.join(os.path.dirname(__file__), './model', bot_name)
-
-    @classmethod
-    def __make_estimator(cls, model_path: str, output_size: int, vocab_size: int):
-        return tf.estimator.Estimator(
-            model_fn=cls.__model_fn,
+    def __init__(self, model_path: str, vocab_size: int, output_size: int, hyper_params: dict):
+        self.__estimator = tf.estimator.Estimator(
+            model_fn=self.__model_fn,
             model_dir=model_path,
             config=tf.estimator.RunConfig(
                 save_checkpoints_steps=50,
-                log_step_count_steps=10
+                log_step_count_steps=10,
+                keep_checkpoint_max=1
             ),
             params={
-                'cell_size': 200,
-                'char_embedding_size': 200,
-                'output_size': output_size,
+                'cell_size': hyper_params['cell_size'],
+                'char_embedding_size': hyper_params['char_embedding_size'],
                 'vocab_size': vocab_size,
+                'output_size': output_size,
                 'learning_rate': 0.0001
             }
         )
@@ -141,56 +108,17 @@ class SlotTagger:
         )
 
     @classmethod
-    def train(cls, bot_name, max_length):
-        text_vocab = Vocabulary()
-        label_vocab = Vocabulary()
-        utterances = Utterance.fetch(bot_name)
-
-        converted = []
-        for utterance in utterances:
-            tokens = list(map(lambda token: text_vocab.transform(token), utterance.tokens()))
-            labels = list(map(lambda label: label_vocab.transform(label), utterance.labels()))
-            converted.append({
-                'tokens': tokens,
-                'labels': labels
-            })
-
-        model_path = cls.__get_model_path(bot_name)
-        if os.path.exists(model_path):
-            shutil.rmtree(model_path)
-        os.makedirs(model_path)
-
-        with open(os.path.join(model_path, cls.__TEXT_VOCAB_FILENAME), mode='w', encoding='utf-8') as fp:
-            fp.write(text_vocab.save())
-
-        with open(os.path.join(model_path, cls.__LABEL_VOCAB_FILENAME), mode='w', encoding='utf-8') as fp:
-            fp.write(label_vocab.save())
-
-        estimator = cls.__make_estimator(model_path, len(label_vocab), len(text_vocab))
-
-        dataset = DatasetGenerator.generate(max_length, converted)
-        dataset = dataset.shuffle(1000).repeat(None).batch(100)
-        estimator.train(lambda: cls.__input_fn(dataset), steps=201)
-
-        result = estimator.evaluate(lambda: cls.__input_fn(dataset), steps=1)
+    def train(cls, model_path: str, vocab_size: int, output_size: int, hyper_params: dict, dataset: tf.data.Dataset):
+        slot_tagger = SlotTagger(model_path, vocab_size, output_size, hyper_params)
+        slot_tagger.__estimator.train(lambda: cls.__input_fn(dataset), steps=201)
+        result = slot_tagger.__estimator.evaluate(lambda: cls.__input_fn(dataset), steps=1)
         print(result)
 
-    def tag(self, utterance: Utterance):
-        tokens = list(map(lambda token: self.__text_vocab.transform(token), utterance.tokens()))
-        labels = list(map(lambda label: self.__label_vocab.transform(label), utterance.labels()))
-        converted = {
-            'tokens': tokens,
-            'labels': labels
-        }
+        return slot_tagger
 
-        dataset = DatasetGenerator.generate(self.__max_length, [converted])
-        dataset = dataset.batch(1)
-
+    def predict(self, dataset: tf.data.Dataset):
         predictions = self.__estimator.predict(
             lambda: self.__input_fn(dataset)
         )
 
-        prediction = list(predictions)[0][:len(tokens)]
-        labels = list(map(lambda num: self.__label_vocab.restore(num), prediction))
-        print(utterance.tokens())
-        print(labels)
+        return list(predictions)
