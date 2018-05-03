@@ -38,6 +38,10 @@ class Utterance:
         return len(self.__tokens)
 
     @property
+    def plain_text(self):
+        return self.__plain_text
+
+    @property
     def original(self):
         return self.__original
 
@@ -83,7 +87,10 @@ class Utterance:
             start = utterance.index(token, idx)
             end = start + len(token)
             span = intrange(start, end)
-            tokens.append(token)
+            tokens.append({
+                'text': token,
+                'span': span
+            })
             idx = end
 
             found = False
@@ -96,7 +103,7 @@ class Utterance:
             if not found:
                 labels.append('o')
 
-        encoded_tokens = [text_vocab.transform(token) for token in tokens]
+        encoded_tokens = [text_vocab.transform(token['text']) for token in tokens]
         encoded_labels = [label_vocab.transform(label) for label in labels]
 
         return Utterance(original, utterance, tokens, labels, encoded_tokens, encoded_labels)

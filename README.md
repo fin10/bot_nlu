@@ -1,4 +1,4 @@
-# Not NLU
+# Bot NLU
 
 ## Requirements
 ```sh

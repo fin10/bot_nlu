@@ -93,8 +93,27 @@ class Bot:
         prediction = predictions[0][:len(utterance)]
         labels = list(map(lambda num: self.__label_vocab.restore(num), prediction))
 
-        print(utterance.tokens)
-        print(labels)
+        slots = []
+        for token, label in zip(utterance.tokens, labels):
+            if label.startswith('b-'):
+                slots.append({
+                    'text': [token],
+                    'slot': label.replace('b-', '', 1)
+                })
+            elif label.startswith('i-'):
+                slot = label.replace('i-', '', 1)
+                if len(slots) > 0 and slots[-1]['slot'] == slot:
+                    slots[-1]['text'].append(token)
+
+        for slot in slots:
+            if len(slot['text']) == 1:
+                slot['text'] = slot['text'][0]['text']
+            else:
+                start = slot['text'][0]['span'].lower
+                end = slot['text'][-1]['span'].upper
+                slot['text'] = utterance.plain_text[start:end]
+
+        return slots
 
     def submit(self):
         client = MongoClient(CONFIG['default']['mongodb'])
