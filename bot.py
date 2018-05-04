@@ -21,7 +21,7 @@ class Bot:
     __DATETIME_FORMAT = '%Y%m%d-%H%M%S'
 
     def __init__(self, name: str, creation_time: datetime, max_length: int, hyper_params: dict,
-                 utterances: list, text_vocab: Vocabulary, label_vocab: Vocabulary):
+                 utterances: set, text_vocab: Vocabulary, label_vocab: Vocabulary):
         self.__name = name
         self.__creation_time = creation_time
         self.__max_length = max_length
@@ -52,7 +52,7 @@ class Bot:
         )
 
     @staticmethod
-    def __get_max_length(utterances: list):
+    def __get_max_length(utterances: set):
         max_length = 0
         for utterance in utterances:
             if max_length < len(utterance):
@@ -86,7 +86,7 @@ class Bot:
 
     def predict(self, text: str):
         utterance = Utterance.parse(text, self.__text_vocab, self.__label_vocab)
-        dataset = DatasetGenerator.generate(self.__max_length, [utterance])
+        dataset = DatasetGenerator.generate(self.__max_length, {utterance})
         dataset = dataset.batch(1)
 
         predictions = self.__slot_tagger.predict(dataset)
@@ -140,7 +140,7 @@ class Bot:
         text_vocab = Vocabulary(json.loads(zlib.decompress(bot['text_vocab']).decode('utf-8')))
         label_vocab = Vocabulary(json.loads(zlib.decompress(bot['label_vocab']).decode('utf-8')))
 
-        utterances = [Utterance.parse(utterance, text_vocab, label_vocab) for utterance in bot['utterances']]
+        utterances = set(Utterance.parse(utterance, text_vocab, label_vocab) for utterance in bot['utterances'])
         max_length = cls.__get_max_length(utterances)
 
         return Bot(
@@ -162,7 +162,10 @@ class Bot:
         label_vocab = Vocabulary()
 
         with open(os.path.join(path, 'training'), encoding='utf-8') as fp:
-            utterances = [Utterance.parse(line.strip(), text_vocab, label_vocab) for line in fp]
+            utterances = set(
+                map(lambda line: Utterance.parse(line, text_vocab, label_vocab),
+                    set(filter(None, map(lambda line: line.strip(), fp.readlines()))))
+            )
 
         max_length = cls.__get_max_length(utterances)
 

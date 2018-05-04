@@ -4,7 +4,7 @@ import tensorflow as tf
 class DatasetGenerator:
 
     @staticmethod
-    def generate(max_length: int, utterances: list):
+    def generate(max_length: int, utterances: set):
         def gen():
             for utterance in utterances:
                 length = len(utterance)
