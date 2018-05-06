@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+from named_entity import NamedEntity
+
 
 class DatasetGenerator:
 
@@ -13,17 +15,26 @@ class DatasetGenerator:
                 tokens = [utterance.encoded_tokens[i] if i < length else 0 for i in range(max_length)]
                 labels = [utterance.encoded_labels[i] if i < length else 0 for i in range(max_length)]
 
+                empty_entities = [0 for _ in range(NamedEntity.SIZE)]
+                encoded_entities = [
+                    [entity[i] if i < len(entity) else 0 for i in range(NamedEntity.SIZE)]
+                    for entity in utterance.encoded_entities
+                ]
+                entities = [encoded_entities[i] if i < length else empty_entities for i in range(max_length)]
+
                 yield ({
-                            'ids': tokens,
-                            'length': length,
-                            'mask': masks
-                        }, labels)
+                    'text': tokens,
+                    'named_entity': entities,
+                    'length': length,
+                    'mask': masks
+                }, labels)
 
         dataset = tf.data.Dataset.from_generator(
             gen,
             (
                 {
-                    'ids': tf.int32,
+                    'text': tf.int32,
+                    'named_entity': tf.int32,
                     'length': tf.int32,
                     'mask': tf.int32
                 },
@@ -31,7 +42,8 @@ class DatasetGenerator:
             ),
             (
                 {
-                    'ids': tf.TensorShape([max_length]),
+                    'text': tf.TensorShape([max_length]),
+                    'named_entity': tf.TensorShape([max_length, NamedEntity.SIZE]),
                     'length': tf.TensorShape([]),
                     'mask': tf.TensorShape([max_length])
                 },

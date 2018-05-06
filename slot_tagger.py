@@ -1,11 +1,14 @@
 import tensorflow as tf
 
+from named_entity import NamedEntity
+
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
 class SlotTagger:
 
-    def __init__(self, model_path: str, vocab_size: int, output_size: int, hyper_params: dict):
+    def __init__(self, model_path: str, text_vocab_size: int, ne_vocab_size: int, output_size: int,
+                 max_length: int, hyper_params: dict):
         self.__estimator = tf.estimator.Estimator(
             model_fn=self.__model_fn,
             model_dir=model_path,
@@ -16,8 +19,11 @@ class SlotTagger:
             ),
             params={
                 'cell_size': hyper_params['cell_size'],
-                'char_embedding_size': hyper_params['char_embedding_size'],
-                'vocab_size': vocab_size,
+                'text_embedding_size': hyper_params['text_embedding_size'],
+                'ne_embedding_size': hyper_params['ne_embedding_size'],
+                'text_vocab_size': text_vocab_size,
+                'ne_vocab_size': ne_vocab_size,
+                'max_length': max_length,
                 'output_size': output_size,
                 'learning_rate': 0.0001
             }
@@ -31,22 +37,36 @@ class SlotTagger:
     def __model_fn(features, labels, mode, params):
         cell_size = params['cell_size']
         output_size = params['output_size']
-        vocab_size = params['vocab_size']
-        embedding_size = params['char_embedding_size']
+        text_vocab_size = params['text_vocab_size']
+        ne_vocab_size = params['ne_vocab_size']
+        text_embedding_size = params['text_embedding_size']
+        ne_embedding_size = params['ne_embedding_size']
+        max_length = params['max_length']
         learning_rate = params['learning_rate']
         keep_prob = 1.0 if mode != tf.estimator.ModeKeys.TRAIN else 0.5
 
-        ids = features['ids']
+        text = features['text']
+        named_entity = features['named_entity']
         length = features['length']
         mask = features['mask']
 
-        char_embeddings = tf.get_variable(
-            name='char_embeddings',
-            shape=[vocab_size, embedding_size],
+        text_embeddings = tf.get_variable(
+            name='text_embeddings',
+            shape=[text_vocab_size, text_embedding_size],
             initializer=tf.random_uniform_initializer(-1, 1)
         )
 
-        inputs = tf.nn.embedding_lookup(char_embeddings, ids)
+        ne_embeddings = tf.get_variable(
+            name='ne_embeddings',
+            shape=[ne_vocab_size, ne_embedding_size],
+            initializer=tf.random_uniform_initializer(-1, 1)
+        )
+
+        text = tf.nn.embedding_lookup(text_embeddings, text)
+        named_entity = tf.nn.embedding_lookup(ne_embeddings, named_entity)
+        named_entity = tf.reshape(named_entity, [-1, max_length, NamedEntity.SIZE * ne_embedding_size])
+
+        inputs = tf.concat([text, named_entity], axis=2)
 
         def rnn_cell(cell_size):
             cell = tf.nn.rnn_cell.GRUCell(cell_size)
@@ -108,8 +128,9 @@ class SlotTagger:
         )
 
     @classmethod
-    def train(cls, model_path: str, vocab_size: int, output_size: int, hyper_params: dict, dataset: tf.data.Dataset):
-        slot_tagger = SlotTagger(model_path, vocab_size, output_size, hyper_params)
+    def train(cls, model_path: str, text_vocab_size: int, ne_vocab_size: int, output_size: int, max_length: int,
+              hyper_params: dict, dataset: tf.data.Dataset):
+        slot_tagger = SlotTagger(model_path, text_vocab_size, ne_vocab_size, output_size, max_length, hyper_params)
         slot_tagger.__estimator.train(lambda: cls.__input_fn(dataset), steps=201)
         result = slot_tagger.__estimator.evaluate(lambda: cls.__input_fn(dataset), steps=1)
         print(result)

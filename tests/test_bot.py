@@ -24,7 +24,7 @@ class TestBot(unittest.TestCase):
 
     def test_predict(self):
         bot = Bot.fetch('busLine')
-        slots = bot.predict('종로 3가 가는 퇴근 버스')
+        slots = bot.predict('인계동 가는 퇴근 버스 알려주세요')
         print(slots)
 
 
