@@ -1,6 +1,6 @@
 import re
 
-from konlpy.tag import Twitter
+import pyokt
 from spans import intrange
 
 from named_entity import NamedEntity
@@ -9,7 +9,6 @@ from named_entity import NamedEntity
 class Utterance:
 
     __slot_pattern = re.compile(r'\(([^)]+)\)\[([^\]]+)\]')
-    __tokenizer = Twitter()
 
     def __init__(self, original: str, plain_text: str, tokens: list,
                  encoded_tokens: list, encoded_entities: list, encoded_labels: list):
@@ -63,7 +62,7 @@ class Utterance:
     @classmethod
     def parse(cls, utterance: str, vocabs: dict, named_entity: NamedEntity):
         original = utterance
-        entities = []
+        items = []
         while True:
             m = cls.__slot_pattern.search(utterance)
             if not m:
@@ -72,30 +71,29 @@ class Utterance:
             label = m.group(2)
             start = m.start()
             end = start + len(text)
-            entities.append({
+            items.append({
                 'text': text,
                 'label': label,
                 'span': intrange(start, end)
             })
             utterance = utterance.replace(m.group(0), text, 1)
 
-        idx = 0
         tokens = []
         labels = []
-        for token in cls.__tokenizer.morphs(utterance):
-            start = utterance.index(token, idx)
-            end = start + len(token)
-            span = intrange(start, end)
+        for token in pyokt.tokenize(utterance):
+            if token.text.isspace():
+                continue
+
+            span = intrange(token.offset, token.offset + token.length)
             tokens.append({
-                'text': token,
+                'text': token.text,
                 'span': span
             })
-            idx = end
 
             found = False
-            for entity in entities:
-                if entity['span'].contains(span):
-                    label = ('b-' if entity['span'].lower == span.lower else 'i-') + entity['label']
+            for item in items:
+                if item['span'].contains(span):
+                    label = ('b-' if item['span'].lower == span.lower else 'i-') + item['label']
                     labels.append(label)
                     found = True
                     break
