@@ -1,24 +1,18 @@
-import json
-
-
 class Vocabulary:
 
     UNK = '<unk>'
 
-    def __init__(self, data=None):
-        if data:
-            self.__size = data['size']
-            self.__dict = data['dict']
-            self.__reverse_dict = data['reverse_dict']
-            self.__freeze = True
-        else:
-            self.__size = 1
-            self.__dict = {self.UNK: 0}
-            self.__reverse_dict = {'0': self.UNK}
-            self.__freeze = False
+    def __init__(self):
+        self.__size = 1
+        self.__dict = {self.UNK: 0}
+        self.__reverse_dict = {'0': self.UNK}
+        self.__freeze = False
 
     def __len__(self):
         return self.__size
+
+    def freeze(self):
+        self.__freeze = True
 
     def transform(self, text: str):
         if not self.__freeze and text not in self.__dict:
@@ -31,10 +25,3 @@ class Vocabulary:
     def restore(self, num: int):
         key = str(num)
         return self.__reverse_dict[key] if key in self.__reverse_dict else self.UNK
-
-    def save(self):
-        return json.dumps({
-            'size': self.__size,
-            'dict': self.__dict,
-            'reverse_dict': self.__reverse_dict
-        })

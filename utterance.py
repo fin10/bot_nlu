@@ -4,7 +4,6 @@ from konlpy.tag import Twitter
 from spans import intrange
 
 from named_entity import NamedEntity
-from vocabulary import Vocabulary
 
 
 class Utterance:
@@ -12,19 +11,17 @@ class Utterance:
     __slot_pattern = re.compile(r'\(([^)]+)\)\[([^\]]+)\]')
     __tokenizer = Twitter()
 
-    def __init__(self, original: str, plain_text: str, tokens: list, entities: list, labels: list,
+    def __init__(self, original: str, plain_text: str, tokens: list,
                  encoded_tokens: list, encoded_entities: list, encoded_labels: list):
         if len(plain_text) == 0:
             raise ValueError('plain_text should not be empty.')
 
-        if len(tokens) != len(labels) != len(entities):
+        if len(encoded_tokens) != len(encoded_entities) != len(encoded_labels):
             raise ValueError('tokens, labels and entities should have same length.')
 
         self.__original = original
         self.__plain_text = plain_text
         self.__tokens = tokens
-        self.__entities = entities
-        self.__labels = labels
         self.__encoded_tokens = encoded_tokens
         self.__encoded_entities = encoded_entities
         self.__encoded_labels = encoded_labels
@@ -33,9 +30,7 @@ class Utterance:
         return str({
             'original': self.__original,
             'plain_text': self.__plain_text,
-            'tokens': self.__tokens,
-            'labels': self.__labels,
-            'entities': self.__entities
+            'tokens': self.__tokens
         })
 
     def __len__(self):
@@ -54,10 +49,6 @@ class Utterance:
         return self.__tokens
 
     @property
-    def labels(self):
-        return self.__labels
-
-    @property
     def encoded_tokens(self):
         return self.__encoded_tokens
 
@@ -70,8 +61,7 @@ class Utterance:
         return self.__encoded_labels
 
     @classmethod
-    def parse(cls, utterance: str, text_vocab: Vocabulary, ne_vocab: Vocabulary, label_vocab: Vocabulary,
-              named_entity: NamedEntity):
+    def parse(cls, utterance: str, vocabs: dict, named_entity: NamedEntity):
         original = utterance
         entities = []
         while True:
@@ -112,15 +102,15 @@ class Utterance:
             if not found:
                 labels.append('o')
 
-        encoded_tokens = [text_vocab.transform(token['text']) for token in tokens]
-        encoded_labels = [label_vocab.transform(label) for label in labels]
+        encoded_tokens = [vocabs['text'].transform(token['text']) for token in tokens]
+        encoded_labels = [vocabs['label'].transform(label) for label in labels]
 
         entities = named_entity.recognize(tokens)
         encoded_entities = [
-            [ne_vocab.transform(unit) for unit in entity] for entity in entities
+            [vocabs['named_entity'].transform(unit) for unit in entity] for entity in entities
         ]
 
         return Utterance(
-            original, utterance, tokens, entities, labels,
+            original, utterance, tokens,
             encoded_tokens, encoded_entities, encoded_labels
         )

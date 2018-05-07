@@ -1,19 +1,12 @@
-import json
-
-
 class NamedEntity:
 
-    SIZE = 3
     NUM = '_number'
 
-    def __init__(self, data: dict = None):
-        self.__dict = data if data else {}
+    def __init__(self):
+        self.__dict = {}
 
     def push(self, name: str, words: set):
         self.__dict[name] = list(words)
-
-    def save(self):
-        return json.dumps(self.__dict)
 
     def recognize(self, tokens: list):
         result = [[] for _ in range(len(tokens))]
