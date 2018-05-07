@@ -77,6 +77,9 @@ class Bot:
                 max_length = len(utterance)
         return max_length * 2
 
+    def is_trained(self):
+        return os.path.exists(self.__get_model_path())
+
     def train(self):
         model_path = self.__get_model_path()
         if os.path.exists(model_path):
@@ -86,9 +89,13 @@ class Bot:
         dataset = DatasetGenerator.generate(self.__max_text_length, self.__max_named_entity_size, self.__utterances)
         dataset = dataset.shuffle(1000).repeat(None).batch(self.__hyper_params['batch_size'])
 
-        self.__slot_tagger.train(dataset, self.__hyper_params['steps'])
+        return self.__slot_tagger.train(dataset, self.__hyper_params['steps'])
 
     def predict(self, text: str):
+        model_path = self.__get_model_path()
+        if not os.path.exists(model_path):
+            raise EnvironmentError('Should be trained.')
+
         utterance = Utterance.parse(text, self.__vocabs, self.__named_entity)
         dataset = DatasetGenerator.generate(self.__max_text_length, self.__max_named_entity_size, {utterance})
         dataset = dataset.batch(1)
@@ -144,6 +151,8 @@ class Bot:
         client = MongoClient(CONFIG['default']['mongodb'])
         db = client['bot-nlu']
         bot = db.bot.find_one({'name': bot_name})
+        if not bot:
+            raise AttributeError(bot_name + ' not found')
 
         vocabs = pickle.loads(bot['vocabs'])
         named_entity = pickle.loads(bot['named_entities'])

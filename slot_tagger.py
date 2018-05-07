@@ -1,6 +1,7 @@
 import tensorflow as tf
 
-tf.logging.set_verbosity(tf.logging.INFO)
+
+# tf.logging.set_verbosity(tf.logging.INFO)
 
 
 class SlotTagger:
@@ -136,8 +137,7 @@ class SlotTagger:
 
     def train(self, dataset: tf.data.Dataset, steps: int):
         self.__estimator.train(lambda: self.__input_fn(dataset), steps=steps)
-        result = self.__estimator.evaluate(lambda: self.__input_fn(dataset), steps=1)
-        print(result)
+        return self.__estimator.evaluate(lambda: self.__input_fn(dataset), steps=1)
 
     def predict(self, dataset: tf.data.Dataset):
         predictions = self.__estimator.predict(
