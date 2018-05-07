@@ -1,5 +1,5 @@
 import unittest
-import json
+
 from vocabulary import Vocabulary
 
 
@@ -16,16 +16,6 @@ class TestVocabulary(unittest.TestCase):
         text = vocab.restore(num)
         self.assertEqual(2, len(vocab))
         self.assertEqual('test', text)
-
-    def test_save(self):
-        vocab = Vocabulary()
-        expected = [vocab.transform('test'), vocab.transform('hello')]
-        saved = vocab.save()
-
-        new_vocab = Vocabulary(json.loads(saved))
-        actual = [new_vocab.transform('test'), new_vocab.transform('hello')]
-
-        self.assertListEqual(expected, actual)
 
 
 if __name__ == '__main__':

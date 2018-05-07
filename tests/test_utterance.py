@@ -1,4 +1,6 @@
 import unittest
+
+from named_entity import NamedEntity
 from utterance import Utterance
 from vocabulary import Vocabulary
 
@@ -11,11 +13,16 @@ class TestUtterance(unittest.TestCase):
             '(황골 마을)[placeName] (퇴근)[busType] 버스 알려줘'
         ]
 
-        text_vocab = Vocabulary()
-        label_vocab = Vocabulary()
+        vocabs = {
+            'text': Vocabulary(),
+            'named_entity': Vocabulary(),
+            'label': Vocabulary()
+        }
+
+        named_entity = NamedEntity()
 
         for tc in tcs:
-            utterance = Utterance.parse(tc, text_vocab, label_vocab)
+            utterance = Utterance.parse(tc, vocabs, named_entity)
             print(utterance)
 
 
