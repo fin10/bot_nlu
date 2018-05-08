@@ -62,6 +62,8 @@ class Utterance:
     @classmethod
     def parse(cls, utterance: str, vocabs: dict, named_entity: NamedEntity):
         original = utterance
+        utterance = utterance.lower()
+
         items = []
         while True:
             m = cls.__slot_pattern.search(utterance)

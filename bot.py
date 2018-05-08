@@ -1,3 +1,4 @@
+import argparse
 import configparser
 import datetime
 import json
@@ -144,7 +145,8 @@ class Bot:
             'named_entities': pickle.dumps(self.__named_entity),
         }
 
-        db.bot.replace_one({'name': self.__name}, bot, upsert=True)
+        result = db.bot.replace_one({'name': self.__name}, bot, upsert=True)
+        return result.raw_result
 
     @classmethod
     def fetch(cls, bot_name: str):
@@ -207,3 +209,23 @@ class Bot:
             vocabs=vocabs,
             named_entity=named_entity
         )
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', choices=['submit', 'train', 'predict'])
+    parser.add_argument('args', nargs='*')
+    args = parser.parse_args()
+
+    if args.command == 'submit':
+        bot = Bot.from_local(args.args[0])
+        result = bot.submit()
+        print(result)
+    elif args.command == 'train':
+        bot = Bot.fetch(args.args[0])
+        result = bot.train()
+        print(result)
+    elif args.command == 'predict':
+        bot = Bot.fetch(args.args[0])
+        result = bot.predict(args.args[1])
+        print(result)
