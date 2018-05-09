@@ -1,0 +1,4 @@
+show me (chinese)[foodType] restaurants
+show me (italian)[foodType] restaurants nearby (seoul)[location]
+find (spicy)[taste] food
+find restaurants nearby (new york)[location] city

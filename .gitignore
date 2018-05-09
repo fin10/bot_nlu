@@ -2,3 +2,4 @@
 /model
 /.idea
 *.iml
+__pycache__
